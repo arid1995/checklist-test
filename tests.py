@@ -5,7 +5,7 @@ import time
 
 class TestSchedule(unittest.TestCase):
     def setUp(self):
-        self.browser = webdriver.Chrome()
+        self.browser = webdriver.Firefox()
         self.browser.implicitly_wait(3)
         self.schedule_page = page.SchedulePage(self.browser)
         self.schedule_page.signInAndNavigate()

@@ -113,6 +113,7 @@ class SchedulePage(BasePage):
 
     def hasWentMobile(self):
         self.driver.find_element(By.XPATH, "//a[text()='Мобильная версия']").click()
+        self.driver.find_element(By.XPATH, "//span[text()='Мобильная версия']").click()
         schedule = ScheduleTable(self.driver).get()
         if schedule.value_of_css_property('max-width') == '600px':
             return True
