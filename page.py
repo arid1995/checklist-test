@@ -1,11 +1,10 @@
 # coding=utf-8
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
 import os
 import time
+
+from selenium.common.exceptions import TimeoutException
+
+from elements import *
 
 
 class BasePage(object):
@@ -35,15 +34,21 @@ class BasePage(object):
         )
         self.navigate()
 
+    def scrollToBottomRight(self):
+        return self.driver.execute_script('window.scrollTo(document.body.scrollWidth, '
+                                          'document.body.scrollHeight); '
+                                          'return document.body.scrollHeight')
+
+    def getWindowYCoordinates(self):
+        return self.driver.execute_script('return window.pageYOffset')
+
 
 class SchedulePage(BasePage):
     url = 'http://ftest.tech-mail.ru/schedule/'
 
     def isOpened(self):
         try:
-            WebDriverWait(self.driver, self.DEFAULT_WAIT_TIME).until(
-                EC.presence_of_element_located((By.XPATH, "//table[@class='schedule-timetable']"))
-            )
+            ScheduleTable(self.driver)
         except TimeoutException:
             return False
         return True
@@ -55,47 +60,34 @@ class SchedulePage(BasePage):
 
     def hasPeriodChanged(self):
         firstElement = self.__waitForFirstElement()
-
         firstDate = firstElement.get_attribute('data-date')
-
-        periodElement = self.driver.find_element(By.XPATH, "//li/a[text()='Весь семестр']")
-        periodElement.click()
-
+        periodSwitcher = PeriodSwitcher(self.driver).get()
+        periodSwitcher.click()
         try:
             WebDriverWait(self.driver, self.DEFAULT_WAIT_TIME).until(
                 EC.presence_of_element_located((By.XPATH, "//tr[@data-date<%d]" % int(firstDate)))
             )
         except TimeoutException:
             return False
-
         return True
+
+    def __clickAndCheckDropdown(self, dropdown, name, itemLocator):
+        dropdown.click()
+        self.driver.find_element(By.XPATH, "//li/a[text()='%s']" % name).click()
+        WebDriverWait(self.driver, self.DEFAULT_WAIT_TIME).until(
+            EC.presence_of_element_located(itemLocator(name))
+        )
 
     def __dropDownChecker(self, name1, name2, menuLocator, itemLocator):
         self.__waitForFirstElement()
-
         dropdown = self.driver.find_element(*menuLocator).find_element_by_class_name(
             'nav-pills_dropdown__active__title')
 
-        dropdown.click()
-        self.driver.find_element(By.XPATH, "//li/a[text()='%s']" % name1).click()
-
         try:
-            WebDriverWait(self.driver, self.DEFAULT_WAIT_TIME).until(
-                EC.presence_of_element_located(itemLocator(name1))
-            )
+            self.__clickAndCheckDropdown(dropdown, name1, itemLocator)
+            self.__clickAndCheckDropdown(dropdown, name2, itemLocator)
         except TimeoutException:
             return False
-
-        dropdown.click()
-        self.driver.find_element(By.XPATH, "//li/a[text()='%s']" % name2).click()
-
-        try:
-            WebDriverWait(self.driver, self.DEFAULT_WAIT_TIME).until(
-                EC.presence_of_element_located(itemLocator(name2))
-            )
-        except TimeoutException:
-            return False
-
         return True
 
     def hasGroupChanged(self):
@@ -111,20 +103,17 @@ class SchedulePage(BasePage):
 
     def hasScrolled(self):
         self.__waitForFirstElement()
-        firstPosition = self.driver.execute_script('window.scrollTo(document.body.scrollWidth, '
-                                                   'document.body.scrollHeight); '
-                                                   'return document.body.scrollHeight')
-        self.driver.find_element(By.XPATH, "//td[@class='calendar-month__body__item__day "
-                                           "calendar-month__body__item__day_active']").click()
+        firstPosition = self.scrollToBottomRight()
+        CalendarDayNumber(self.driver).get().click()
         time.sleep(0.4)
-        lastPosition = self.driver.execute_script('return window.pageYOffset')
+        lastPosition = self.getWindowYCoordinates()
         if firstPosition != lastPosition:
             return True
         return False
 
     def hasWentMobile(self):
         self.driver.find_element(By.XPATH, "//a[text()='Мобильная версия']").click()
-        schedule = self.driver.find_element(By.XPATH, "//table[@class='schedule-timetable']")
+        schedule = ScheduleTable(self.driver).get()
         if schedule.value_of_css_property('max-width') == '600px':
             return True
         return False
@@ -134,8 +123,11 @@ class SchedulePage(BasePage):
                                       (By.XPATH, "//div[@class='schedule-filters__item schedule-filters__item_type']"),
                                       lambda s: (By.XPATH, "//p[contains(., '%s')]" % s))
 
-    def hasInfoPoppedUp(self):
+    def clickInfoIcon(self):
         self.driver.find_element(By.XPATH, "//a[@class='schedule-show-info icon-info-blue']").click()
+
+    def hasInfoPoppedUp(self):
+        self.clickInfoIcon()
         return self.driver.find_element(By.XPATH, "//div[@class='modal modal-show-info jqm-init']").is_displayed()
 
     def hasNavigatedToBlog(self):
@@ -148,8 +140,11 @@ class SchedulePage(BasePage):
             return False
         return True
 
-    def hasSubjectInfoPoppedUp(self):
+    def clickSchedulePill(self):
         self.driver.find_element(By.XPATH, "//div[@class='schedule-item js-schedule-item']").click()
+
+    def hasSubjectInfoPoppedUp(self):
+        self.clickSchedulePill()
         try:
             WebDriverWait(self.driver, self.DEFAULT_WAIT_TIME).until(
                 EC.presence_of_element_located((By.XPATH, "//div[@class='qtip qtip-default schedule-item-popup "
@@ -162,7 +157,6 @@ class SchedulePage(BasePage):
     def isOnlyTwoWeeks(self):
         self.__waitForFirstElement()
         lastElement = self.driver.find_elements(By.XPATH, "//tr[@class='schedule-timetable__item']")[-1:][0]
-
         lastDate = int(lastElement.get_attribute('data-date'))
         if lastDate > int(time.time() * 1000) + 1209600000:
             return False
