@@ -1,11 +1,12 @@
+# coding=utf-8
 from selenium import webdriver
 import unittest
 import page
-import time
+
 
 class TestSchedule(unittest.TestCase):
     def setUp(self):
-        self.browser = webdriver.Firefox()
+        self.browser = webdriver.Chrome()
         self.browser.implicitly_wait(3)
         self.schedule_page = page.SchedulePage(self.browser)
         self.schedule_page.signInAndNavigate()
@@ -20,10 +21,22 @@ class TestSchedule(unittest.TestCase):
         self.assertNotEqual(origDate, changedDate)
 
     def test_group_change(self):
-        self.assertTrue(self.schedule_page.hasGroupChanged())
+        group1 = 'BALinux-11'
+        group2 = 'DevAppiOS-11'
+        self.schedule_page.switchPeriod()
+        self.schedule_page.changeGroup(group1)
+        self.assertTrue(self.schedule_page.isGroupPresent(group1))
+        self.schedule_page.changeGroup(group2)
+        self.assertTrue(self.schedule_page.isGroupPresent(group2))
 
     def test_discipline_change(self):
-        self.assertTrue(self.schedule_page.hasDisciplineChanged())
+        discipline1 = 'Разработка приложений на iOS '
+        discipline2 = 'Программирование на Python'
+        self.schedule_page.switchPeriod()
+        self.schedule_page.changeDiscipline(discipline1)
+        self.assertTrue(self.schedule_page.isDisciplinePresent(discipline1))
+        self.schedule_page.changeDiscipline(discipline2)
+        self.assertTrue(self.schedule_page.isDisciplinePresent(discipline2))
 
     def test_calendar_scroll(self):
         self.schedule_page.scrollToBottomRight()
@@ -38,7 +51,13 @@ class TestSchedule(unittest.TestCase):
         self.assertEqual(width, '600px')
 
     def test_events_change(self):
-        self.assertTrue(self.schedule_page.hasEventChanged())
+        event1 = 'Лекция'
+        event2 = 'Семинар'
+        self.schedule_page.switchPeriod()
+        self.schedule_page.changeEvent(event1)
+        self.assertTrue(self.schedule_page.isEventPresent(event1))
+        self.schedule_page.changeEvent(event2)
+        self.assertTrue(self.schedule_page.isEventPresent(event2))
 
     def test_info_popup(self):
         self.schedule_page.clickInfoIcon()
@@ -61,5 +80,4 @@ class TestSchedule(unittest.TestCase):
         self.browser.close()
 
 if __name__ == '__main__':
-
     unittest.main()

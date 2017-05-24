@@ -68,10 +68,12 @@ class SchedulePage(BasePage):
     def switchPeriod(self):
         periodSwitcher = PeriodSwitcher(self.driver).get()
         periodSwitcher.click()
+        self.__waitUntilLoaded()
 
     def clickCalendarDay(self):
+        self.__waitForFirstElement()
+        self.scrollToBottomRight()
         CalendarDayNumber(self.driver).get().click()
-        time.sleep(0.4)
 
     def changeGroup(self, name):
         self.__waitForFirstElement()
@@ -119,21 +121,13 @@ class SchedulePage(BasePage):
         self.driver.find_element(By.XPATH, "//a[@class='icon-blog']").click()
 
     def getBlogSection(self):
-        blogSection = None
-        try:
-            blogSection = WebDriverWait(self.driver, self.DEFAULT_WAIT_TIME).until(
-                EC.presence_of_element_located()
-            )
-        except TimeoutException:
-            blogSection = None
-        return blogSection
+        return self.driver.find_element(By.XPATH, "//div[@class='blog-section']")
 
     def clickSchedulePill(self):
         self.driver.find_element(By.XPATH, "//div[@class='schedule-item js-schedule-item']").click()
 
     def hasSubjectInfoPoppedUp(self):
-        return self.__checkPresence((By.XPATH, "//div[@class='qtip qtip-default schedule-item-popup "
-                                                          "qtip-pos-tl qtip-focus']"))
+        return self.__checkPresence((By.XPATH, "//div[@class='large-item__content']"))
 
     def getDisplayedDays(self):
         lastDate = self.getLastDate()
@@ -144,17 +138,24 @@ class SchedulePage(BasePage):
             EC.presence_of_element_located((By.XPATH, "//tr[@class='schedule-timetable__item']"))
         )
 
+    def __waitUntilLoaded(self):
+        WebDriverWait(self.driver, self.DEFAULT_WAIT_TIME).until(
+            EC.invisibility_of_element_located((By.XPATH, "//div[@class='icon-ajax-loader']"))
+        )
+
     def __getDropDown(self, locator):
         return self.driver.find_element(*locator).find_element_by_class_name('nav-pills_dropdown__active__title')
 
     def __clickOnDropdownElement(self, dropdown, name):
         dropdown.click()
         self.driver.find_element(By.XPATH, "//li/a[text()='%s']" % name).click()
+        self.__waitUntilLoaded()
 
     def __checkPresence(self, locator):
         try:
             WebDriverWait(self.driver, self.DEFAULT_WAIT_TIME).until(
                 EC.presence_of_element_located(locator)
             )
+            return True
         except TimeoutException:
             return False
