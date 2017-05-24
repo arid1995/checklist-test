@@ -11,7 +11,7 @@ class BasePage(object):
     DEFAULT_WAIT_TIME = 10
     ELEMENT_NOT_PRESENT_TIME = 2
     url = None
-    login = 'arid1995@mail.ru.local'
+    login = os.environ.get("TP_LOGIN")
     password = os.environ.get("PASSWORD")
 
     def __init__(self, driver):
@@ -42,6 +42,9 @@ class BasePage(object):
     def getWindowYCoordinates(self):
         return self.driver.execute_script('return window.pageYOffset')
 
+    def getWindowXCoordinates(self):
+        return self.driver.execute_script('return window.pageXOffset')
+
 
 class SchedulePage(BasePage):
     url = 'http://ftest.tech-mail.ru/schedule/'
@@ -53,112 +56,105 @@ class SchedulePage(BasePage):
             return False
         return True
 
-    def __waitForFirstElement(self):
-        return WebDriverWait(self.driver, self.DEFAULT_WAIT_TIME).until(
-            EC.presence_of_element_located((By.XPATH, "//tr[@class='schedule-timetable__item']"))
-        )
-
-    def hasPeriodChanged(self):
+    def getFirstDate(self):
         firstElement = self.__waitForFirstElement()
-        firstDate = firstElement.get_attribute('data-date')
+        return firstElement.get_attribute('data-date')
+
+    def getLastDate(self):
+        self.__waitForFirstElement()
+        lastDateElement = self.driver.find_elements(By.XPATH, "//tr[@class='schedule-timetable__item']")[-1:][0]
+        return int(lastDateElement.get_attribute('data-date'))
+
+    def switchPeriod(self):
         periodSwitcher = PeriodSwitcher(self.driver).get()
         periodSwitcher.click()
-        try:
-            WebDriverWait(self.driver, self.DEFAULT_WAIT_TIME).until(
-                EC.presence_of_element_located((By.XPATH, "//tr[@data-date<%d]" % int(firstDate)))
-            )
-        except TimeoutException:
-            return False
-        return True
 
-    def __clickAndCheckDropdown(self, dropdown, name, itemLocator):
-        dropdown.click()
-        self.driver.find_element(By.XPATH, "//li/a[text()='%s']" % name).click()
-        WebDriverWait(self.driver, self.DEFAULT_WAIT_TIME).until(
-            EC.presence_of_element_located(itemLocator(name))
-        )
-
-    def __dropDownChecker(self, name1, name2, menuLocator, itemLocator):
-        self.__waitForFirstElement()
-        dropdown = self.driver.find_element(*menuLocator).find_element_by_class_name(
-            'nav-pills_dropdown__active__title')
-
-        try:
-            self.__clickAndCheckDropdown(dropdown, name1, itemLocator)
-            self.__clickAndCheckDropdown(dropdown, name2, itemLocator)
-        except TimeoutException:
-            return False
-        return True
-
-    def hasGroupChanged(self):
-        return self.__dropDownChecker('BALinux-11', 'DevAppiOS-11',
-                                      (By.XPATH, "//div[@class='schedule-filters__item schedule-filters__item_group']"),
-                                      lambda s: (By.XPATH, "//nobr[text()='%s']" % s))
-
-    def hasDisciplineChanged(self):
-        return self.__dropDownChecker('Разработка приложений на iOS ', 'Программирование на Python',
-                                      (By.XPATH, "//div[@class='schedule-filters__item "
-                                                 "schedule-filters__item_discipline']"),
-                                      lambda s: (By.XPATH, "//td/strong/a[text()='%s']" % s))
-
-    def hasScrolled(self):
-        self.__waitForFirstElement()
-        firstPosition = self.scrollToBottomRight()
+    def clickCalendarDay(self):
         CalendarDayNumber(self.driver).get().click()
         time.sleep(0.4)
-        lastPosition = self.getWindowYCoordinates()
-        if firstPosition != lastPosition:
-            return True
-        return False
 
-    def hasWentMobile(self):
+    def changeGroup(self, name):
+        self.__waitForFirstElement()
+        dropdown = self.__getDropDown((By.XPATH, "//div[@class='schedule-filters__item schedule-filters__item_group']"))
+        self.__clickOnDropdownElement(dropdown, name)
+
+    def isGroupPresent(self, name):
+        self.__waitForFirstElement()
+        return self.__checkPresence((By.XPATH, "//nobr[text()='%s']" % name))
+
+    def changeDiscipline(self, name):
+        self.__waitForFirstElement()
+        dropdown = self.__getDropDown((By.XPATH, "//div[@class='schedule-filters__item "
+                                                 "schedule-filters__item_discipline']"))
+        self.__clickOnDropdownElement(dropdown, name)
+
+    def isDisciplinePresent(self, name):
+        self.__waitForFirstElement()
+        return self.__checkPresence((By.XPATH, "//td/strong/a[text()='%s']" % name))
+
+    def changeEvent(self, name):
+        self.__waitForFirstElement()
+        dropdown = self.__getDropDown((By.XPATH, "//div[@class='schedule-filters__item schedule-filters__item_type']"))
+        self.__clickOnDropdownElement(dropdown, name)
+
+    def isEventPresent(self, name):
+        self.__waitForFirstElement()
+        return self.__checkPresence((By.XPATH, "//p[contains(., '%s')]" % name))
+
+    def switchToMobile(self):
         self.driver.find_element(By.XPATH, "//a[text()='Мобильная версия']").click()
         self.driver.find_element(By.XPATH, "//span[text()='Мобильная версия']").click()
-        schedule = ScheduleTable(self.driver).get()
-        if schedule.value_of_css_property('max-width') == '600px':
-            return True
-        return False
 
-    def hasEventChanged(self):
-        return self.__dropDownChecker('Лекция', 'Семинар',
-                                      (By.XPATH, "//div[@class='schedule-filters__item schedule-filters__item_type']"),
-                                      lambda s: (By.XPATH, "//p[contains(., '%s')]" % s))
+    def getScheduleWidth(self):
+        schedule = ScheduleTable(self.driver).get()
+        return schedule.value_of_css_property('max-width')
 
     def clickInfoIcon(self):
         self.driver.find_element(By.XPATH, "//a[@class='schedule-show-info icon-info-blue']").click()
 
     def hasInfoPoppedUp(self):
-        self.clickInfoIcon()
         return self.driver.find_element(By.XPATH, "//div[@class='modal modal-show-info jqm-init']").is_displayed()
 
-    def hasNavigatedToBlog(self):
+    def clickBlogIcon(self):
         self.driver.find_element(By.XPATH, "//a[@class='icon-blog']").click()
+
+    def getBlogSection(self):
+        blogSection = None
         try:
-            WebDriverWait(self.driver, self.DEFAULT_WAIT_TIME).until(
-                EC.presence_of_element_located((By.XPATH, "//div[@class='blog-section']"))
+            blogSection = WebDriverWait(self.driver, self.DEFAULT_WAIT_TIME).until(
+                EC.presence_of_element_located()
             )
         except TimeoutException:
-            return False
-        return True
+            blogSection = None
+        return blogSection
 
     def clickSchedulePill(self):
         self.driver.find_element(By.XPATH, "//div[@class='schedule-item js-schedule-item']").click()
 
     def hasSubjectInfoPoppedUp(self):
-        self.clickSchedulePill()
+        return self.__checkPresence((By.XPATH, "//div[@class='qtip qtip-default schedule-item-popup "
+                                                          "qtip-pos-tl qtip-focus']"))
+
+    def getDisplayedDays(self):
+        lastDate = self.getLastDate()
+        return (lastDate - int(time.time() * 1000)) / 86400000
+
+    def __waitForFirstElement(self):
+        return WebDriverWait(self.driver, self.DEFAULT_WAIT_TIME).until(
+            EC.presence_of_element_located((By.XPATH, "//tr[@class='schedule-timetable__item']"))
+        )
+
+    def __getDropDown(self, locator):
+        return self.driver.find_element(*locator).find_element_by_class_name('nav-pills_dropdown__active__title')
+
+    def __clickOnDropdownElement(self, dropdown, name):
+        dropdown.click()
+        self.driver.find_element(By.XPATH, "//li/a[text()='%s']" % name).click()
+
+    def __checkPresence(self, locator):
         try:
             WebDriverWait(self.driver, self.DEFAULT_WAIT_TIME).until(
-                EC.presence_of_element_located((By.XPATH, "//div[@class='qtip qtip-default schedule-item-popup "
-                                                          "qtip-pos-tl qtip-focus']"))
+                EC.presence_of_element_located(locator)
             )
         except TimeoutException:
             return False
-        return True
-
-    def isOnlyTwoWeeks(self):
-        self.__waitForFirstElement()
-        lastElement = self.driver.find_elements(By.XPATH, "//tr[@class='schedule-timetable__item']")[-1:][0]
-        lastDate = int(lastElement.get_attribute('data-date'))
-        if lastDate > int(time.time() * 1000) + 1209600000:
-            return False
-        return True
