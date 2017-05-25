@@ -3,6 +3,8 @@ import os
 import time
 
 from selenium.common.exceptions import TimeoutException
+from selenium.webdriver import DesiredCapabilities
+from selenium.webdriver.remote.webdriver import WebDriver
 
 from elements import *
 
@@ -62,7 +64,7 @@ class SchedulePage(BasePage):
 
     def getLastDate(self):
         self.__waitForFirstElement()
-        lastDateElement = self.driver.find_elements(By.XPATH, "//tr[@class='schedule-timetable__item']")[-1:][0]
+        lastDateElement = ScheduleElement(self.driver).getLast()
         return int(lastDateElement.get_attribute('data-date'))
 
     def switchPeriod(self):
@@ -77,7 +79,7 @@ class SchedulePage(BasePage):
 
     def changeGroup(self, name):
         self.__waitForFirstElement()
-        dropdown = self.__getDropDown((By.XPATH, "//div[@class='schedule-filters__item schedule-filters__item_group']"))
+        dropdown = GroupDropdown(self.driver).get()
         self.__clickOnDropdownElement(dropdown, name)
 
     def isGroupPresent(self, name):
@@ -86,8 +88,7 @@ class SchedulePage(BasePage):
 
     def changeDiscipline(self, name):
         self.__waitForFirstElement()
-        dropdown = self.__getDropDown((By.XPATH, "//div[@class='schedule-filters__item "
-                                                 "schedule-filters__item_discipline']"))
+        dropdown = DisciplineDropdown(self.driver).get()
         self.__clickOnDropdownElement(dropdown, name)
 
     def isDisciplinePresent(self, name):
@@ -96,7 +97,7 @@ class SchedulePage(BasePage):
 
     def changeEvent(self, name):
         self.__waitForFirstElement()
-        dropdown = self.__getDropDown((By.XPATH, "//div[@class='schedule-filters__item schedule-filters__item_type']"))
+        dropdown = EventDropdown(self.driver).get()
         self.__clickOnDropdownElement(dropdown, name)
 
     def isEventPresent(self, name):
@@ -104,6 +105,7 @@ class SchedulePage(BasePage):
         return self.__checkPresence((By.XPATH, "//p[contains(., '%s')]" % name))
 
     def switchToMobile(self):
+        self.scrollToBottomRight()
         self.driver.find_element(By.XPATH, "//a[text()='Мобильная версия']").click()
         self.driver.find_element(By.XPATH, "//span[text()='Мобильная версия']").click()
 
@@ -112,39 +114,32 @@ class SchedulePage(BasePage):
         return schedule.value_of_css_property('max-width')
 
     def clickInfoIcon(self):
-        self.driver.find_element(By.XPATH, "//a[@class='schedule-show-info icon-info-blue']").click()
+        InfoIcon(self.driver).get().click()
 
     def hasInfoPoppedUp(self):
-        return self.driver.find_element(By.XPATH, "//div[@class='modal modal-show-info jqm-init']").is_displayed()
+        return SubjectInfoPopup(self.driver).get().is_displayed()
 
     def clickBlogIcon(self):
-        self.driver.find_element(By.XPATH, "//a[@class='icon-blog']").click()
+        BlogIcon(self.driver).get().click()
 
     def getBlogSection(self):
-        return self.driver.find_element(By.XPATH, "//div[@class='blog-section']")
+        return BlogSection(self.driver).get()
 
     def clickSchedulePill(self):
-        self.driver.find_element(By.XPATH, "//div[@class='schedule-item js-schedule-item']").click()
+        SchedulePill(self.driver).get().click()
 
     def hasSubjectInfoPoppedUp(self):
-        return self.__checkPresence((By.XPATH, "//div[@class='large-item__content']"))
+        return self.__checkPresence(ClassInfoPopup(self.driver).locator)
 
     def getDisplayedDays(self):
         lastDate = self.getLastDate()
         return (lastDate - int(time.time() * 1000)) / 86400000
 
     def __waitForFirstElement(self):
-        return WebDriverWait(self.driver, self.DEFAULT_WAIT_TIME).until(
-            EC.presence_of_element_located((By.XPATH, "//tr[@class='schedule-timetable__item']"))
-        )
+        return ScheduleElement(self.driver).get()
 
     def __waitUntilLoaded(self):
-        WebDriverWait(self.driver, self.DEFAULT_WAIT_TIME).until(
-            EC.invisibility_of_element_located((By.XPATH, "//div[@class='icon-ajax-loader']"))
-        )
-
-    def __getDropDown(self, locator):
-        return self.driver.find_element(*locator).find_element_by_class_name('nav-pills_dropdown__active__title')
+        AjaxLoader().waitToDisappear(self.driver)
 
     def __clickOnDropdownElement(self, dropdown, name):
         dropdown.click()

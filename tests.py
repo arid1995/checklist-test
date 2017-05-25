@@ -1,12 +1,23 @@
 # coding=utf-8
 from selenium import webdriver
 import unittest
+
+from selenium.webdriver import DesiredCapabilities
+from selenium.webdriver.remote.webdriver import WebDriver
+
 import page
+import os
 
 
 class TestSchedule(unittest.TestCase):
     def setUp(self):
-        self.browser = webdriver.Chrome()
+        browser = os.environ.get("BROWSER")
+        capability = {}
+        if browser == "CHROME":
+            capability = DesiredCapabilities.CHROME
+        else:
+            capability = DesiredCapabilities.FIREFOX
+        self.browser = WebDriver(command_executor='http://127.0.0.1:4444/wd/hub', desired_capabilities=capability)
         self.browser.implicitly_wait(3)
         self.schedule_page = page.SchedulePage(self.browser)
         self.schedule_page.signInAndNavigate()
@@ -77,7 +88,7 @@ class TestSchedule(unittest.TestCase):
         self.assertLess(numberOfDays, 15)
 
     def tearDown(self):
-        self.browser.close()
+        self.browser.quit()
 
 if __name__ == '__main__':
     unittest.main()
